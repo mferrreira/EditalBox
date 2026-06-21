@@ -17,6 +17,9 @@ type Config struct {
 	AgentBaseURL         string
 	AgentTimeout         time.Duration
 	SessionRetention     time.Duration
+	TelegramPollTimeout  time.Duration
+	TelegramRetryLimit   int
+	TelegramRetryBackoff time.Duration
 	CollectorUserAgent   string
 	CollectorSeedURLs    []string
 	CollectorFollowRules []string
@@ -24,15 +27,18 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		Environment:      env("EDITALBOX_ENV", "development"),
-		HTTPAddr:         env("EDITALBOX_HTTP_ADDR", ":8080"),
-		DBPath:           env("EDITALBOX_DB_PATH", "./data/editalbox.db"),
-		SyncInterval:     envDuration("EDITALBOX_SYNC_INTERVAL", 24*time.Hour),
-		TelegramToken:    env("EDITALBOX_TELEGRAM_TOKEN", ""),
-		AllowedChatIDs:   parseChatIDs(env("EDITALBOX_TELEGRAM_ALLOWED_CHAT_IDS", "")),
-		AgentBaseURL:     env("EDITALBOX_AGENT_BASE_URL", "http://127.0.0.1:8090"),
-		AgentTimeout:     envDuration("EDITALBOX_AGENT_TIMEOUT", 20*time.Second),
-		SessionRetention: 24 * time.Hour,
+		Environment:          env("EDITALBOX_ENV", "development"),
+		HTTPAddr:             env("EDITALBOX_HTTP_ADDR", ":8080"),
+		DBPath:               env("EDITALBOX_DB_PATH", "./data/editalbox.db"),
+		SyncInterval:         envDuration("EDITALBOX_SYNC_INTERVAL", 24*time.Hour),
+		TelegramToken:        env("EDITALBOX_TELEGRAM_TOKEN", ""),
+		AllowedChatIDs:       parseChatIDs(env("EDITALBOX_TELEGRAM_ALLOWED_CHAT_IDS", "")),
+		AgentBaseURL:         env("EDITALBOX_AGENT_BASE_URL", "http://127.0.0.1:8090"),
+		AgentTimeout:         envDuration("EDITALBOX_AGENT_TIMEOUT", 20*time.Second),
+		SessionRetention:     24 * time.Hour,
+		TelegramPollTimeout:  envDuration("EDITALBOX_TELEGRAM_POLL_TIMEOUT", 25*time.Second),
+		TelegramRetryLimit:   envInt("EDITALBOX_TELEGRAM_RETRY_LIMIT", 3),
+		TelegramRetryBackoff: envDuration("EDITALBOX_TELEGRAM_RETRY_BACKOFF", 2*time.Second),
 		CollectorUserAgent: "Mozilla/5.0 (X11; Linux armv7l) " +
 			"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
 		CollectorSeedURLs: []string{
@@ -75,6 +81,18 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func envInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	var out int
+	if _, err := fmt.Sscan(value, &out); err != nil {
+		return fallback
+	}
+	return out
 }
 
 func parseChatIDs(value string) map[int64]struct{} {

@@ -22,10 +22,11 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	health, _ := a.agent.Health(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":        "ok",
-		"total_notices": total,
-		"last_sync":     lastSync,
-		"agent":         health,
+		"status":         "ok",
+		"total_notices":  total,
+		"last_sync":      lastSync,
+		"uptime_seconds": int(time.Since(a.startedAt).Seconds()),
+		"agent":          health,
 	})
 }
 

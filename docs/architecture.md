@@ -14,17 +14,17 @@ Responsabilidades:
 - bot do Telegram com polling;
 - manutenção de sessão temporária por 24h;
 - busca textual local;
-- envio incremental dos itens novos ou alterados para o agent;
-- fallback quando o agent estiver indisponível.
+- envio incremental dos itens novos ou alterados para o serviço auxiliar;
+- fallback quando o serviço auxiliar estiver indisponível.
 
-### MacBook (`agent/`, Python)
+### Nó auxiliar (`agent/`, Python)
 
 Responsabilidades:
 
 - recepção incremental dos editais e documentos alterados;
 - chunking e indexação local;
 - ranqueamento lexical inicial;
-- geração opcional de resposta com Ollama;
+- geração de resposta com modelo local via Ollama;
 - consolidação de evidências e justificativas;
 - healthcheck simples para a TV Box.
 
@@ -62,7 +62,7 @@ Padrões de seguimento:
 - `telegram_sessions`
 - `telegram_messages`
 
-### Agent
+### Serviço auxiliar
 
 - `indexed_notices`
 - `indexed_chunks`
@@ -89,16 +89,16 @@ Padrões de seguimento:
 - contexto temporário por sessão;
 - expiração após 24h sem interação;
 - sem perfil persistente de usuário;
-- contexto enviado ao agent junto da pergunta atual.
+- contexto enviado ao serviço auxiliar junto da pergunta atual.
 
-## Contrato entre TV Box e agent
+## Contrato entre TV Box e serviço auxiliar
 
 ### `GET /health`
 
 Retorna:
 
 - status do serviço;
-- disponibilidade do Ollama;
+- disponibilidade do modelo local;
 - quantidade de itens indexados.
 
 ### `POST /v1/ingest`
@@ -130,28 +130,3 @@ Saída:
 - resultados estruturados;
 - justificativa curta por item;
 - indicador se houve uso de Ollama.
-
-## Roadmap
-
-### Fase 1
-
-- estrutura do monorepo;
-- SQLite local;
-- coletor dirigido por seeds;
-- bot do Telegram;
-- agent com ingestão incremental;
-- RAG lexical;
-- Ollama opcional.
-
-### Fase 2
-
-- extração pesada de PDF, DOC e DOCX no agent;
-- embeddings locais;
-- re-ranking híbrido lexical + semântico;
-- extração robusta de múltiplas datas e cronogramas.
-
-### Fase 3
-
-- classificação mais precisa de status;
-- limpeza controlada de itens terminalmente finalizados;
-- maior cobertura de anexos e retificações.

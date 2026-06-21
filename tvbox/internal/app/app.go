@@ -26,6 +26,7 @@ type App struct {
 	httpSrv   *http.Server
 	mu        sync.Mutex
 	lastSync  time.Time
+	startedAt time.Time
 }
 
 func New(cfg config.Config) (*App, error) {
@@ -38,7 +39,8 @@ func New(cfg config.Config) (*App, error) {
 		store:     store,
 		collector: collector.New(cfg.CollectorUserAgent, cfg.CollectorFollowRules),
 		agent:     agent.New(cfg.AgentBaseURL, cfg.AgentTimeout),
-		bot:       telegram.New(cfg.TelegramToken),
+		bot:       telegram.New(cfg.TelegramToken, cfg.TelegramPollTimeout, cfg.TelegramRetryLimit, cfg.TelegramRetryBackoff),
+		startedAt: time.Now().UTC(),
 	}
 	app.httpSrv = &http.Server{
 		Addr:    cfg.HTTPAddr,
@@ -114,6 +116,7 @@ func (a *App) runScheduler(ctx context.Context) error {
 func (a *App) syncNow(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	started := time.Now()
 
 	runID, err := a.store.StartSyncRun(ctx)
 	if err != nil {
@@ -137,14 +140,14 @@ func (a *App) syncNow(ctx context.Context) error {
 
 		page, fetchErr := a.collector.Fetch(ctx, rawURL)
 		if fetchErr != nil {
-			log.Printf("fetch %s: %v", rawURL, fetchErr)
+			log.Printf("sync fetch_failed url=%s err=%v", rawURL, fetchErr)
 			continue
 		}
 		pagesFetched++
 
 		noticeID, _, upsertErr := a.store.UpsertNotice(ctx, page.Notice)
 		if upsertErr != nil {
-			log.Printf("upsert notice %s: %v", rawURL, upsertErr)
+			log.Printf("sync upsert_failed url=%s err=%v", rawURL, upsertErr)
 			continue
 		}
 		noticesUpserted++
@@ -165,9 +168,10 @@ func (a *App) syncNow(ctx context.Context) error {
 	}
 
 	if err := a.pushChangedNotices(ctx); err != nil {
-		log.Printf("push changed notices: %v", err)
+		log.Printf("sync agent_ingest_failed err=%v", err)
 	}
 	a.lastSync = time.Now().UTC()
+	log.Printf("sync completed duration=%s seeds=%d pages=%d notices=%d", time.Since(started).Round(time.Millisecond), seedsVisited, pagesFetched, noticesUpserted)
 	return a.store.FinishSyncRun(ctx, runID, "success", seedsVisited, pagesFetched, noticesUpserted, "")
 }
 
@@ -201,6 +205,7 @@ func (a *App) pushChangedNotices(ctx context.Context) error {
 
 func (a *App) runTelegram(ctx context.Context) error {
 	var offset int64
+	consecutiveErrors := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -210,17 +215,21 @@ func (a *App) runTelegram(ctx context.Context) error {
 
 		updates, err := a.bot.GetUpdates(ctx, offset)
 		if err != nil {
-			log.Printf("telegram get updates: %v", err)
-			time.Sleep(5 * time.Second)
+			consecutiveErrors++
+			delay := time.Duration(min(consecutiveErrors, 5)) * 2 * time.Second
+			log.Printf("telegram poll_failed consecutive=%d backoff=%s err=%v", consecutiveErrors, delay, err)
+			time.Sleep(delay)
 			continue
 		}
+		consecutiveErrors = 0
 		for _, update := range updates {
 			offset = update.UpdateID + 1
 			if !a.isAllowed(update.Message.Chat.ID) {
+				log.Printf("telegram ignored chat_id=%d update_id=%d", update.Message.Chat.ID, update.UpdateID)
 				continue
 			}
 			if err := a.handleTelegramMessage(ctx, update.Message); err != nil {
-				log.Printf("telegram handle message: %v", err)
+				log.Printf("telegram handle_failed chat_id=%d message_id=%d err=%v", update.Message.Chat.ID, update.Message.MessageID, err)
 			}
 		}
 	}
@@ -239,6 +248,7 @@ func (a *App) handleTelegramMessage(ctx context.Context, message telegram.Messag
 	if text == "" {
 		return nil
 	}
+	log.Printf("telegram message_received chat_id=%d message_id=%d text=%q", message.Chat.ID, message.MessageID, summarizeText(text, 140))
 	if err := a.store.SaveMessage(ctx, message.Chat.ID, "user", text); err != nil {
 		return err
 	}
@@ -273,12 +283,14 @@ func (a *App) handleTelegramMessage(ctx context.Context, message telegram.Messag
 	if err := a.store.SaveMessage(ctx, message.Chat.ID, "assistant", reply); err != nil {
 		return err
 	}
+	log.Printf("telegram message_replied chat_id=%d message_id=%d reply=%q", message.Chat.ID, message.MessageID, summarizeText(reply, 180))
 	return a.bot.SendMessage(ctx, message.Chat.ID, reply)
 }
 
 func (a *App) answerQuery(ctx context.Context, chatID int64, question string) string {
 	candidatesPool, err := a.buildCandidatePool(ctx, question)
 	if err != nil || len(candidatesPool) == 0 {
+		log.Printf("query no_candidates chat_id=%d question=%q", chatID, summarizeText(question, 120))
 		return "Nao encontrei editais compativeis na base local."
 	}
 
@@ -302,8 +314,10 @@ func (a *App) answerQuery(ctx context.Context, chatID int64, question string) st
 		Candidates:     candidates,
 	})
 	if err != nil || len(result.Structured) == 0 {
+		log.Printf("query fallback_local chat_id=%d candidates=%d err=%v", chatID, len(candidatesPool), err)
 		return formatNotices(candidatesPool[:min(5, len(candidatesPool))])
 	}
+	log.Printf("query answered chat_id=%d candidates=%d results=%d used_ollama=%t", chatID, len(candidatesPool), len(result.Structured), result.UsedOllama)
 
 	var lines []string
 	lines = append(lines, result.Text)
@@ -350,6 +364,15 @@ func fallback(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func summarizeText(value string, max int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+	return string(runes[:max]) + "..."
 }
 
 func min(a, b int) int {

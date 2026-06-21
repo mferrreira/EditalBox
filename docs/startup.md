@@ -4,22 +4,22 @@
 
 Use os scripts na raiz do projeto:
 
-- [start-mac.sh](/Users/marcio/Projetos/EditalBox/start-mac.sh): inicia o agent no MacBook.
-- [start-linux.sh](/Users/marcio/Projetos/EditalBox/start-linux.sh): inicia o agent em Linux.
-- [start-tvbox.sh](/Users/marcio/Projetos/EditalBox/start-tvbox.sh): inicia o servico principal na TV Box.
-- [install-tvbox.sh](/Users/marcio/Projetos/EditalBox/install-tvbox.sh): instala a TV Box em modo de producao com `systemd`.
-- [start-windows.ps1](/Users/marcio/Projetos/EditalBox/start-windows.ps1): inicia o agent no Windows.
+- `start-mac.sh`: inicia o serviço auxiliar no MacBook.
+- `start-linux.sh`: inicia o serviço auxiliar em Linux.
+- `start-tvbox.sh`: inicia o servico principal na TV Box.
+- `install-tvbox.sh`: instala a TV Box em modo de producao com `systemd`.
+- `start-windows.ps1`: inicia o serviço auxiliar no Windows.
 
-Os scripts fazem bootstrap de `.env`, validam dependencias e iniciam os processos corretos.
+Os scripts preparam o arquivo `.env`, validam dependências e iniciam os processos necessários.
 
 ## MacBook
 
 ### O que o script faz
 
-`/Users/marcio/Projetos/EditalBox/start-mac.sh`
+`start-mac.sh`
 
 - cria `agent/.env` se ele ainda nao existir;
-- carrega as variaveis do agent;
+- carrega as variaveis do serviço auxiliar;
 - verifica se o `ollama` esta instalado;
 - se o `ollama` nao existir:
   - tenta `brew install --cask ollama`;
@@ -28,12 +28,13 @@ Os scripts fazem bootstrap de `.env`, validam dependencias e iniciam os processo
 - se necessario, sobe `ollama serve`;
 - verifica se o modelo definido em `EDITALBOX_AGENT_OLLAMA_MODEL` existe;
 - se faltar, executa `ollama pull <modelo>`;
-- inicia o agent em Python.
+- inicia o serviço auxiliar em Python.
 
 ### Como usar
 
 ```bash
-cd /Users/marcio/Projetos/EditalBox
+git clone git@github.com:mferrreira/EditalBox.git
+cd EditalBox
 chmod +x start-mac.sh
 ./start-mac.sh
 ```
@@ -48,7 +49,7 @@ chmod +x start-mac.sh
 ### Como usar
 
 ```bash
-cd /Users/marcio/Projetos/EditalBox
+cd EditalBox
 chmod +x start-linux.sh
 ./start-linux.sh
 ```
@@ -81,7 +82,7 @@ No Windows, o script valida a presenca do `ollama`, mas nao tenta instalar sozin
 
 - [ollama.com/download/windows](https://ollama.com/download/windows)
 
-Depois rode o script novamente. O restante do fluxo continua automatico: subir `ollama serve`, validar o modelo e executar `ollama pull` quando necessario.
+Depois rode o script novamente. O restante do fluxo continua automático: iniciar `ollama serve`, validar o modelo e executar `ollama pull` quando necessário.
 
 ## Telegram
 
@@ -113,20 +114,20 @@ curl "https://api.telegram.org/bot<SEU_TOKEN>/getUpdates"
 
 ### O que o script faz
 
-`/Users/marcio/Projetos/EditalBox/start-tvbox.sh`
+`start-tvbox.sh`
 
 - cria `tvbox/.env` se ele ainda nao existir;
 - pede o token do Telegram se ele estiver vazio;
 - pede o `chat_id` permitido se ele estiver vazio;
-- pede a URL do agent no MacBook se a configuracao ainda estiver em `localhost`;
+- pede a URL do serviço auxiliar no MacBook se a configuracao ainda estiver em `localhost`;
 - valida a presenca do Go;
-- testa o endpoint `/health` do agent, sem bloquear a subida se ele estiver temporariamente fora do ar;
+- testa o endpoint `/health` do serviço auxiliar, sem bloquear a subida se ele estiver temporariamente fora do ar;
 - inicia o servico principal em Go.
 
 ### Como usar
 
 ```bash
-cd /Users/marcio/Projetos/EditalBox
+cd EditalBox
 chmod +x start-tvbox.sh
 ./start-tvbox.sh
 ```
@@ -136,7 +137,7 @@ chmod +x start-tvbox.sh
 Para instalar em modo persistente na TV Box:
 
 ```bash
-cd /Users/marcio/Projetos/EditalBox
+cd EditalBox
 chmod +x install-tvbox.sh
 ./install-tvbox.sh
 ```
@@ -146,11 +147,11 @@ Esse instalador:
 - compila o binario Go;
 - instala o projeto em `/opt/editalbox/tvbox`;
 - copia o `.env`;
-- instala a unit [deploy/systemd/editalbox-tvbox.service](/Users/marcio/Projetos/EditalBox/deploy/systemd/editalbox-tvbox.service);
+- instala a unit `deploy/systemd/editalbox-tvbox.service`;
 - roda `systemctl daemon-reload`;
 - executa `systemctl enable --now editalbox-tvbox`.
 
-### URL correta do agent
+### URL correta do serviço auxiliar
 
 A TV Box deve apontar para o IP do MacBook na rede local, por exemplo:
 
@@ -179,9 +180,9 @@ ipconfig getifaddr en1
 
 ## Arquivos de configuracao
 
-- [agent/.env.example](/Users/marcio/Projetos/EditalBox/agent/.env.example)
-- [tvbox/.env.example](/Users/marcio/Projetos/EditalBox/tvbox/.env.example)
+- `agent/.env.example`
+- `tvbox/.env.example`
 
 ## Observacao importante
 
-Os scripts sao para ambiente de desenvolvimento e bring-up inicial. Depois que o fluxo estiver estavel, a recomendacao e migrar a execucao para os arquivos `systemd` em [deploy/systemd](/Users/marcio/Projetos/EditalBox/deploy/systemd).
+Os scripts atendem à execução local e aos procedimentos de instalação. Para operação contínua na TV Box, a recomendação é utilizar as unidades `systemd` em `deploy/systemd`.
