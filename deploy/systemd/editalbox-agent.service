@@ -1,0 +1,15 @@
+[Unit]
+Description=EditalBox local agent service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/editalbox/agent
+EnvironmentFile=/opt/editalbox/agent/.env
+Environment=PYTHONPATH=/opt/editalbox/agent/src
+ExecStart=/usr/bin/python3 -m agent.main
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

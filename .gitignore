@@ -1,0 +1,13 @@
+.DS_Store
+*.log
+
+.env
+*.db
+*.sqlite
+
+__pycache__/
+*.pyc
+
+agent/logs/
+agent/data/
+tvbox/data/
