@@ -7,6 +7,7 @@ Use os scripts na raiz do projeto:
 - [start-mac.sh](/Users/marcio/Projetos/EditalBox/start-mac.sh): inicia o agent no MacBook.
 - [start-linux.sh](/Users/marcio/Projetos/EditalBox/start-linux.sh): inicia o agent em Linux.
 - [start-tvbox.sh](/Users/marcio/Projetos/EditalBox/start-tvbox.sh): inicia o servico principal na TV Box.
+- [install-tvbox.sh](/Users/marcio/Projetos/EditalBox/install-tvbox.sh): instala a TV Box em modo de producao com `systemd`.
 - [start-windows.ps1](/Users/marcio/Projetos/EditalBox/start-windows.ps1): inicia o agent no Windows.
 
 Os scripts fazem bootstrap de `.env`, validam dependencias e iniciam os processos corretos.
@@ -129,6 +130,25 @@ cd /Users/marcio/Projetos/EditalBox
 chmod +x start-tvbox.sh
 ./start-tvbox.sh
 ```
+
+### Instalacao com systemd
+
+Para instalar em modo persistente na TV Box:
+
+```bash
+cd /Users/marcio/Projetos/EditalBox
+chmod +x install-tvbox.sh
+./install-tvbox.sh
+```
+
+Esse instalador:
+
+- compila o binario Go;
+- instala o projeto em `/opt/editalbox/tvbox`;
+- copia o `.env`;
+- instala a unit [deploy/systemd/editalbox-tvbox.service](/Users/marcio/Projetos/EditalBox/deploy/systemd/editalbox-tvbox.service);
+- roda `systemctl daemon-reload`;
+- executa `systemctl enable --now editalbox-tvbox`.
 
 ### URL correta do agent
 
