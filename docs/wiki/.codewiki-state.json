@@ -1,0 +1,21 @@
+{
+  "repo_name": "EditalBox",
+  "source_path": "/Users/marcio/Projetos/EditalBox",
+  "source_sha": "3235affe2df76bfb77faac2379d682b280c7467b",
+  "generated_at": "2026-07-12T23:55:00Z",
+  "generator": "hermes-agent code-wiki skill v0.1.0",
+  "modules_documented": [
+    "tvbox/cmd/editalbox",
+    "tvbox/internal/app",
+    "tvbox/internal/collector",
+    "tvbox/internal/storage",
+    "tvbox/internal/domain",
+    "tvbox/internal/telegram",
+    "tvbox/internal/config",
+    "tvbox/internal/agent",
+    "agent/src/agent/main",
+    "agent/src/agent/service",
+    "agent/src/agent/ollama",
+    "agent/src/agent/store"
+  ]
+}
